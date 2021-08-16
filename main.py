@@ -1,28 +1,38 @@
-import pyglet
+import math  # always useful to have
 import ctypes
+import pyglet
 
-import shader
+
 
 pyglet.options["shadow_window"] = False
 pyglet.options["debug_gl"] = False
 
 import pyglet.gl as gl
 
-vertex_positions = [ # 3d coordinates for each vertex
-	-0.5,  0.5, 1.0,
-	-0.5, -0.5, 1.0,
-	 0.5, -0.5, 1.0,
-	 0.5,  0.5, 1.0,
+import shader
+import matrix  # import matrix.py file
+
+
+vertex_positions = [  # set the Z component to 0.0 so that our object is centered
+    -0.5, 0.5, 0.0,
+    -0.5, -0.5, 0.0,
+    0.5, -0.5, 0.0,
+    0.5, 0.5, 0.0,
 ]
 
 indices = [
-	0, 1, 2, # first triangle
-	0, 2, 3, # second triangle
+    0, 1, 2,  # first triangle
+    0, 2, 3,  # second triangle
 ]
+
 
 class Window(pyglet.window.Window):
     def __init__(self, **args):
-        super(Window,self).__init__(**args)
+        super().__init__(**args)
+
+
+
+        # create vertex array object
 
         self.vao = gl.GLuint(0)
         gl.glGenVertexArrays(1, ctypes.byref(self.vao))
@@ -53,27 +63,69 @@ class Window(pyglet.window.Window):
                         (gl.GLuint * len(indices))(*indices),
                         gl.GL_STATIC_DRAW)
 
+        # create shader
+
         self.shader = shader.Shader("vert.glsl", "frag.glsl")
+        self.shader_matrix_location = self.shader.find_uniform(b"matrix")  # get the shader matrix uniform location
         self.shader.use()
 
-    def on_draw(self):
-        gl.glClearColor(0.0,0.0,0.0,1.0)
-        self.clear()
-        gl.glDrawElements(gl.GL_TRIANGLES, len(indices), gl.GL_UNSIGNED_INT, None)  # draw bound buffers to the screen
+        # create matrices
 
-    def on_resize(self,width,height):
-        print(f"Resize {width} * {height}")  # print out window size
-        gl.glViewport(0, 0, width, height)  # resize the actual OpenGL viewport
+        self.mv_matrix = matrix.Matrix()  # modelview
+        self.p_matrix = matrix.Matrix()  # projection
+
+        self.x = 0  # temporary variable
+        pyglet.clock.schedule_interval(self.update, 1.0 / 120)  # call update function every 60th of a second
+
+    def update(self, delta_time):
+
+
+        self.x += delta_time  # increment self.x consistently
+        self.set_caption("LakyCraft Python Alpha 0.4 | FPS: " + str(round(pyglet.clock.get_fps())))
+
+    def on_draw(self):
+        # create projection matrix
+
+        self.p_matrix.load_identity()
+        self.p_matrix.perspective(90, float(self.width) / self.height, 0.1, 500)
+
+        # create model view matrix
+
+        self.mv_matrix.load_identity()
+        self.mv_matrix.translate(0, 0, -1)
+        self.mv_matrix.rotate_2d(self.x, math.sin(self.x / 3 * 2) / 2)
+
+        # multiply the two matrices together and send to the shader program
+
+        mvp_matrix = self.p_matrix * self.mv_matrix
+        self.shader.uniform_matrix(self.shader_matrix_location, mvp_matrix)
+
+        # draw stuff
+
+        gl.glClearColor(0.0, 0.0, 0.0, 1.0)
+        self.clear()
+
+        gl.glDrawElements(
+            gl.GL_TRIANGLES,
+            len(indices),
+            gl.GL_UNSIGNED_INT,
+            None)
+
+    def on_resize(self, width, height):
+        print(f"Resize {width} * {height}")
+        gl.glViewport(0, 0, width, height)
+
 
 class Game:
     def __init__(self):
-        self.config = gl.Config(double_buffer=True, major_version=3)  # use modern opengl
-        self.window = Window(config=self.config, width=800, height=600, caption="LakyCraft Python v1.0", resizable=True, vsync=False)  # vsync with pyglet causes problems on some computers, so disable it
+        self.config = gl.Config(double_buffer=True, major_version=3)
+        self.window = Window(config=self.config, width=800, height=600, caption="LakyCraft Python Alpha 0.4", resizable=True,
+                             vsync=False)
 
     def run(self):
-        pyglet.app.run()  # run our application
+        pyglet.app.run()
 
 
-if __name__ == "__main__": # only run the game if source file is the one run
-	game = Game() # create game object
-	game.run()
+if __name__ == "__main__":
+    game = Game()
+    game.run()

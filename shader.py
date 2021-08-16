@@ -1,8 +1,9 @@
 import ctypes
 import pyglet.gl as gl
 
+
 class Shader_error(Exception):
-    def __init(self, message):
+    def __init__(self, message):
         self.message = message
 
 
@@ -60,8 +61,14 @@ class Shader:
         gl.glDeleteShader(self.vert_shader)
         gl.glDeleteShader(self.frag_shader)
 
-    def __del__(self):  # don't forget to delete the program when the Shader object is deleted!
+    def __del__(self):
         gl.glDeleteProgram(self.program)
+
+    def find_uniform(self, name):  # return the location of our uniform in the program
+        return gl.glGetUniformLocation(self.program, ctypes.create_string_buffer(name))
+
+    def uniform_matrix(self, location, matrix):  # pass a matrix to the specified location in the program
+        gl.glUniformMatrix4fv(location, 1, gl.GL_FALSE, (gl.GLfloat * 16)(*sum(matrix.data, [])))
 
     def use(self):
         gl.glUseProgram(self.program)
